@@ -1,6 +1,14 @@
 const {getList, getDetail, newBlog, updateBlog, delBlog} = require('../controller/blog')
 const {SuccessModel, ErroModel} = require('../model/resModel')
 
+//登录验证
+const loginCheck = (req) => {
+    if(!req.session.username){
+        return Promise.resolve(new ErroModel('尚未登录'));
+    }
+    
+}
+
 const handerBlogRouter = (req, res) => {
     const method = req.method;
     const id = req.query.id;
@@ -27,7 +35,13 @@ const handerBlogRouter = (req, res) => {
 
     //新建一篇博客
     if(method === 'POST' && req.path === '/api/blog/new'){
-        req.body.author = 'yb';
+        const loginCheckResult = loginCheck(req);
+        //未登录
+        if(loginCheckResult){
+            return loginCheck;
+        }
+
+        req.body.author = req.session.username;
 
         const result = newBlog(req.body);
         return result.then(data => {
@@ -36,22 +50,40 @@ const handerBlogRouter = (req, res) => {
     }
 
     if(method === 'POST' && req.path === '/api/blog/update'){
-        const result = updateBlog(id, req.Body);
-        if(result){
-            return new SuccessModel();
-        }else {
-            return new ErroModel('更新失败');
+        const loginCheckResult = loginCheck(req);
+        //未登录
+        if(loginCheckResult){
+            return loginCheck;
         }
+
+        const result = updateBlog(id, req.body);
+        return result.then(val => {
+            if(val){
+                return new SuccessModel();
+            }else{
+                return new ErroModel('更新博客失败')
+            }
+        })
     }
 
     //删除
     if(method === 'POST' && req.path === '/api/blog/del'){
-        const result = delBlog(id);
-        if(result){
-            return new SuccessModel();
-        }else {
-            return new ErroModel('删除失败')
+        const loginCheckResult = loginCheck(req);
+        //未登录
+        if(loginCheckResult){
+            return loginCheck;
         }
+        
+        const author = req.session.username
+        const result = delBlog(id, author);
+        
+        return result.then(val => {
+            if(val){
+                return new SuccessModel();
+            }else{
+                return new ErroModel('删除博客失败')
+            }
+        })
     }
 }
 

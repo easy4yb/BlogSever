@@ -1,6 +1,18 @@
 const handleBlogRuoter = require('./src/ruoter/blog');
 const handleUserRuoter = require('./src/ruoter/user');
+const {get, set}  = require('./src/db/redis')
 const querystring = require('querystring');
+
+// //session数据
+// const SESSION_DATA = {};
+
+//获取cookie过期时间
+const getCookieExpires = () => {
+    const d = new Date();
+    d.setTime(d.getTime() + (24 * 60 * 60 *1000))
+    return d.toGMTString();
+}
+
 //处理postdata
 const getPostData = (req) => {
     const promise = new Promise((resolve, reject) => {
@@ -24,7 +36,6 @@ const getPostData = (req) => {
             resolve(JSON.parse(postData));
         })
     })
-
     return promise;
 }
 
@@ -39,13 +50,67 @@ const serverHandle = (req, res) => {
     //解析query
     req.query = querystring.parse(url.split('?')[1]);
 
-    getPostData(req).then(postData => {
+    //解析cookie
+    req.cookie = {};
+    const cookieStr = req.headers.cookie || '';
+    cookieStr.split(';').forEach(item => {
+        if(!item){
+            return;
+        }
+        const arr = item.split('=');
+        const key = arr[0].trim();
+        const val = arr[1].trim();
+        req.cookie[key] = val;
+    })
+
+    // //处理session
+    // let needSetCookie = false;
+    // let userId = req.cookie.userid;
+    // if(userId){
+    //     if(!SESSION_DATA[userId]){
+    //         SESSION_DATA[userId] = {};
+    //     }
+    // }else{
+    //     needSetCookie = true;
+    //     
+    //     SESSION_DATA[userId] = {};
+    // }
+    // req.session = SESSION_DATA[userId];
+
+    let needSetCookie = false;
+    let userId = req.cookie.userid;
+    if(!userId){
+        needSetCookie = true;
+        userId = `${Date.now()}_${Math.random()}`;
+
+        //初始化session
+        set(userId, {});
+    }
+    //获取session
+    req.sessionId = userId;
+    get(req.sessionId).then(sessionData => {
+        if(sessionData === null){
+            //初始化redis中的session值
+            set(req.sessionId, {});
+            //设置session
+            req.session = {}
+        }else{
+            req.session = sessionData;
+        }
+
+        return getPostData(req);
+    })
+    .then(postData => {
         req.body = postData;
 
         //处理blog路由
         const blogResult = handleBlogRuoter(req, res);
         if(blogResult){
             return blogResult.then(blogData => {
+                if(needSetCookie){
+                    res.setHeader('Set-Cookie',`userid = ${userId}; path = /; httpOnly; expires = ${getCookieExpires()}`);
+                }
+
                 res.end(
                     JSON.stringify(blogData)
                 )
@@ -54,11 +119,17 @@ const serverHandle = (req, res) => {
         }
 
         //处理user路由
-        const userData = handleUserRuoter(req, res);
-        if(userData){
-            res.end(
-                JSON.stringify(userData)
-            )
+        const userResult = handleUserRuoter(req, res)
+        if(userResult){
+            return userResult.then(userData => {
+                if(needSetCookie){
+                    res.setHeader('Set-Cookie',`userid = ${userId}; path = /; httpOnly; expires = ${getCookieExpires()}`);
+                }
+
+                res.end(
+                    JSON.stringify(userData)
+                )
+            })
             return;
         }
 
