@@ -25,7 +25,7 @@ rl.on('line', (lineData) => {
     if(arr[2] && arr[2].indexOf('Chrome') > 0){
         //累加Chrome数量
         chromeNum++;
-    }
+    } 
 })
 
 rl.on('close', () => {
