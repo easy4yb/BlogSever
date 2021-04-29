@@ -2,6 +2,7 @@ const handleBlogRuoter = require('./src/ruoter/blog');
 const handleUserRuoter = require('./src/ruoter/user');
 const {get, set}  = require('./src/db/redis')
 const querystring = require('querystring');
+const { access } = require('./src/utils/log');
 
 // //session数据
 // const SESSION_DATA = {};
@@ -40,6 +41,10 @@ const getPostData = (req) => {
 }
 
 const serverHandle = (req, res) => {
+    //访问日志
+    access(`${req.method} -- ${req.url} -- ${req.headers['user-agent']} -- ${Date.now()}`)
+
+
     //设置返回格式JSON
     res.setHeader('Content-type', 'application/json');
 
