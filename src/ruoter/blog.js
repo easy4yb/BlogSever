@@ -15,8 +15,18 @@ const handerBlogRouter = (req, res) => {
 
     //获取博客列表
     if(method === 'GET' && req.path === '/api/blog/list'){
-        const author = req.query.author || '';
+        let author = req.query.author || '';
         const keyword = req.query.keyword || '';
+
+        if(req.query.isadmin){
+            //管理员界面
+            const loginCheckResult = loginCheck(req);
+            if(loginCheckResult){
+                return loginCheckResult;
+            }
+
+            author = req.session.username;
+        }
 
         const result = getList(author, keyword)
         return result.then(listData => {
@@ -38,7 +48,7 @@ const handerBlogRouter = (req, res) => {
         const loginCheckResult = loginCheck(req);
         //未登录
         if(loginCheckResult){
-            return loginCheck;
+            return loginCheckResult;
         }
 
         req.body.author = req.session.username;
@@ -53,7 +63,7 @@ const handerBlogRouter = (req, res) => {
         const loginCheckResult = loginCheck(req);
         //未登录
         if(loginCheckResult){
-            return loginCheck;
+            return loginCheckResult;
         }
 
         const result = updateBlog(id, req.body);
@@ -71,7 +81,7 @@ const handerBlogRouter = (req, res) => {
         const loginCheckResult = loginCheck(req);
         //未登录
         if(loginCheckResult){
-            return loginCheck;
+            return loginCheckResult;
         }
         
         const author = req.session.username
